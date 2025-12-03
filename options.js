@@ -1,21 +1,46 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const apiKeyInput = document.getElementById("apiKey");
-  const status = document.getElementById("status");
-  const saveBtn = document.getElementById("saveBtn");
+  const domainInput   = document.getElementById("cpiDomain");
+  const providerSelect = document.getElementById("aiProvider");
+  const apiKeyInput   = document.getElementById("apiKey");
+  const apiKeyLabel   = document.getElementById("apiKeyLabel");
+  const saveBtn       = document.getElementById("saveBtn");
+  const status        = document.getElementById("status");
 
-  // Load existing key
-  chrome.storage.local.get(["geminiApiKey"], (result) => {
-    if (result.geminiApiKey) {
-      apiKeyInput.value = result.geminiApiKey;
+  function updateApiKeyLabel() {
+    if (providerSelect.value === "gemini") {
+      apiKeyLabel.textContent = "Gemini API Key";
+      apiKeyInput.placeholder = "Enter Gemini API Key";
+    } else if (providerSelect.value === "openai") {
+      apiKeyLabel.textContent = "OpenAI API Key";
+      apiKeyInput.placeholder = "Enter OpenAI API Key";
     }
-  });
+  }
 
-  // Save key
+  // Load existing settings
+  chrome.storage.sync.get(
+    ["cpiDomain", "aiProvider", "apiKey"],
+    (result) => {
+      if (result.cpiDomain)  domainInput.value = result.cpiDomain;
+      if (result.aiProvider) providerSelect.value = result.aiProvider;
+      if (result.apiKey)     apiKeyInput.value = result.apiKey;
+      updateApiKeyLabel();
+    }
+  );
+
+  providerSelect.addEventListener("change", updateApiKeyLabel);
+
+  // Save settings
   saveBtn.addEventListener("click", () => {
-    const key = apiKeyInput.value.trim();
-    chrome.storage.local.set({ geminiApiKey: key }, () => {
-      status.textContent = "Saved!";
-      setTimeout(() => (status.textContent = ""), 2000);
-    });
+    const cpiDomain  = domainInput.value.trim();
+    const aiProvider = providerSelect.value;
+    const apiKey     = apiKeyInput.value.trim();
+
+    chrome.storage.sync.set(
+      { cpiDomain, aiProvider, apiKey },
+      () => {
+        status.textContent = "Saved!";
+        setTimeout(() => { status.textContent = ""; }, 2000);
+      }
+    );
   });
 });
