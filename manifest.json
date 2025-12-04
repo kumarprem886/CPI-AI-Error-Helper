@@ -2,14 +2,14 @@
   "manifest_version": 3,
   "name": "CPI AI Error Helper",
   "version": "1.0.0",
-  "description": "Adds an 'Explain Error (AI)' button in SAP CPI monitoring using Gemini.",
+  "description": "Adds an 'Explain Error (AI)' button in SAP CPI monitoring using Gemini/OpenAI.",
   "permissions": ["storage"],
   "host_permissions": [
-    "https://*.cfapps.eu20.hana.ondemand.com/*"
+    "*://*.hana.ondemand.com/*"
   ],
   "content_scripts": [
     {
-      "matches": ["https://*.cfapps.eu20.hana.ondemand.com/*"],
+      "matches": ["*://*.hana.ondemand.com/*"],
       "js": ["content.js"],
       "run_at": "document_idle"
     }
