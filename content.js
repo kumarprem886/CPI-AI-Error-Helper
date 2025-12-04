@@ -1,8 +1,6 @@
-// ============================
-// Floating AI Assistant for CPI
-// ============================
-
-// Movable floating AI panel
+// =====================================================
+// Floating AI Assistant Panel (Draggable)
+// =====================================================
 function showAiPanel(text) {
   let panel = document.getElementById("cpi-ai-floating-pane");
 
@@ -53,6 +51,7 @@ function showAiPanel(text) {
       margin-left: 10px;
     `;
     close.onclick = () => panel.remove();
+
     header.appendChild(close);
 
     const content = document.createElement("div");
@@ -69,13 +68,14 @@ function showAiPanel(text) {
     panel.appendChild(header);
     panel.appendChild(content);
     document.body.appendChild(panel);
+
     makeDraggable(panel, header);
   }
 
   document.getElementById("cpi-ai-floating-content").innerText = text;
 }
 
-// Drag panel
+// Draggable panel
 function makeDraggable(element, handle) {
   let offsetX = 0, offsetY = 0, startX = 0, startY = 0;
 
@@ -104,19 +104,15 @@ function makeDraggable(element, handle) {
   }
 }
 
-// ============================
-// AI Providers
-// ============================
-
-// Gemini Call
+// =====================================================
+// AI Provider Calls
+// =====================================================
 async function callGemini(errorText, apiKey) {
-  const prompt =
-    "You are an SAP CPI integration expert. Analyze this error and provide root cause, fix steps and config items to check.\n\n" +
-    errorText;
+  const prompt = "You are an SAP CPI expert. Analyze the following CPI error and suggest root cause, fix steps, and parameters to check:\n\n" + errorText;
 
   const res = await fetch(
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
-      encodeURIComponent(apiKey),
+    encodeURIComponent(apiKey),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -127,14 +123,11 @@ async function callGemini(errorText, apiKey) {
   if (!res.ok) throw new Error("HTTP " + res.status);
   const data = await res.json();
   const parts = data?.candidates?.[0]?.content?.parts || [];
-  return parts.map((p) => p.text || "").join("\n").trim();
+  return parts.map(p => p.text || "").join("\n").trim();
 }
 
-// OpenAI Call
 async function callOpenAI(errorText, apiKey) {
-  const prompt =
-    "You are an SAP CPI expert. Analyze the following CPI error and respond only with ROOT CAUSE, FIX STEPS, and PARAMETERS TO CHECK:\n\n" +
-    errorText;
+  const prompt = "You are an SAP CPI expert. Explain root cause, fixes, and config items to check:\n\n" + errorText;
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -153,22 +146,20 @@ async function callOpenAI(errorText, apiKey) {
   return data?.choices?.[0]?.message?.content || "No response returned.";
 }
 
-// AI dispatcher
 async function callAI(errorText, provider, apiKey) {
   if (provider === "gemini") return callGemini(errorText, apiKey);
   if (provider === "openai") return callOpenAI(errorText, apiKey);
-  throw new Error("Unknown AI provider: " + provider);
+  throw new Error("Unknown provider");
 }
 
-// ============================
-// Attach Buttons to CPI Error Logs
-// ============================
+// =====================================================
+// Attach AI button inside CPI error blocks
+// =====================================================
 function attachButton(el) {
   if (el.dataset.aiHelperAttached === "true") return;
 
   const btn = document.createElement("button");
   btn.innerText = "Explain Error (AI)";
-  btn.className = "ai-help-btn";
   btn.style.cssText = `
     background-color: #4c8bf5;
     color: #fff;
@@ -185,14 +176,9 @@ function attachButton(el) {
     const errorText = el.innerText.trim();
     if (!errorText) return showAiPanel("Unable to read error text.");
 
-    chrome.storage.sync.get(["aiProvider", "apiKey"], async ({ aiProvider, apiKey }) => {
+    chrome.storage.local.get(["aiProvider", "apiKey"], async ({ aiProvider, apiKey }) => {
       const provider = aiProvider || "gemini";
-
-      if (!apiKey) {
-        return showAiPanel(
-          `No API key configured for ${provider.toUpperCase()}.\nGo to Extension Options to set one.`
-        );
-      }
+      if (!apiKey) return showAiPanel(`No API key set for ${provider}. Configure in Options.`);
 
       showAiPanel(`Analyzing with ${provider.toUpperCase()}...`);
 
@@ -209,40 +195,78 @@ function attachButton(el) {
   el.dataset.aiHelperAttached = "true";
 }
 
-// ============================
-// Scan CPI page for error text
-// ============================
+// =====================================================
+// Scan CPI Page for Errors & auto-attach button
+// =====================================================
 function scanForErrors() {
-  const errorHeader = Array.from(document.querySelectorAll("span"))
-    .find((el) => el.textContent.trim() === "Error Details");
+  // Find header by fuzzy matching, span or div
+  const errorHeader = Array.from(document.querySelectorAll("span, div"))
+    .find(el => el.textContent.trim().toLowerCase() === "error details");
 
   if (!errorHeader) return;
 
-  let logSpan =
-    errorHeader.closest("div.sapMFlexBox")?.parentElement?.parentElement
-      ?.querySelector("span.itopweb-artifact-message span.sapMTextLineClamp");
+  // Try multiple known selectors for body text
+  const selectors = [
+    "span.itopweb-artifact-message span.sapMTextLineClamp",   // deployment errors
+    "span.itopweb-monospaced-font span.sapMTextLineClamp",    // runtime (message) errors
+    "span.sapMTextLineClamp",                                 // fallback
+    "span.sapMText",                                          
+    "pre"                                                     // raw logs
+  ];
 
-  if (!logSpan) {
-    logSpan = errorHeader.closest("div.sapUiVlt")?.querySelector("span.sapMTextLineClamp");
+  let logSpan = null;
+  for (const sel of selectors) {
+    logSpan = errorHeader.closest("div")?.parentElement?.parentElement?.querySelector(sel)
+         || errorHeader.closest("div.sapUiVlt")?.querySelector(sel);
+    if (logSpan) break;
   }
 
   if (!logSpan) return;
 
-  const txt = logSpan.innerText.trim();
-  if (txt.length < 15) return;
+  const text = logSpan.innerText.trim();
+  if (text.length < 10) return;
 
   if (!logSpan.dataset.aiAttached) attachButton(logSpan);
 }
 
-// ============================
-// Enable scanning if domain matches
-// ============================
-chrome.storage.sync.get(["cpiDomain"], ({ cpiDomain }) => {
-  if (!cpiDomain) return;
-  if (window.location.href.includes(cpiDomain)) {
-    console.log("CPI AI Helper Active on:", cpiDomain);
-    setInterval(scanForErrors, 3000);
-  } else {
-    console.log("CPI AI Helper: Domain mismatch, scanning disabled.");
+
+
+
+// =====================================================
+// Enable scanning when hostname matches wildcard or substring patterns
+// =====================================================
+function wildcardMatch(hostname, pattern) {
+  // Simple substring mode if no wildcard present
+  if (!pattern.includes("*")) {
+    return hostname.includes(pattern);
   }
+
+  // Convert wildcard to correct regex without forcing start anchor
+  const escaped = pattern
+    .replace(/\./g, "\\.")   // escape dots
+    .replace(/\*/g, ".*");   // convert *
+
+  const regex = new RegExp(escaped + "$", "i"); // enforce end anchor only
+  return regex.test(hostname);
+}
+
+chrome.storage.local.get(["tenantDomains"], ({ tenantDomains }) => {
+  if (!tenantDomains) return;
+
+  const hostname = window.location.hostname;
+  const patterns = tenantDomains.split(",").map(v => v.trim()).filter(Boolean);
+
+  for (const p of patterns) {
+    if (wildcardMatch(hostname, p)) {
+      console.log(`✔ Match: "${hostname}" against pattern "${p}"`);
+      setInterval(scanForErrors, 2500);
+      return;
+    }
+  }
+
+  console.log(`❌ No match for hostname "${hostname}"`);
 });
+
+
+
+

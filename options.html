@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>CPI AI Error Helper – Settings</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       padding: 18px;
+      background: #f4f6f8;
+    }
+    h2 {
+      margin-bottom: 12px;
     }
     label {
       display: block;
@@ -16,28 +20,49 @@
     }
     input, select {
       width: 100%;
-      padding: 6px;
+      padding: 7px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
       box-sizing: border-box;
+      font-size: 14px;
     }
     button {
-      margin-top: 16px;
-      padding: 6px 14px;
+      margin-top: 18px;
+      padding: 8px 16px;
+      font-size: 14px;
+      background: #0070f2;
+      color: white;
+      border: none;
+      border-radius: 6px;
       cursor: pointer;
+    }
+    button:hover {
+      background: #0059c9;
     }
     #status {
       margin-left: 10px;
+      font-size: 13px;
+    }
+    #domainStatus {
       font-size: 12px;
-      color: green;
+      margin-top: 4px;
+      font-weight: bold;
     }
   </style>
 </head>
+
 <body>
   <h2>CPI AI Error Helper – Settings</h2>
 
-  <label for="cpiDomain">CPI Tenant Domain</label>
-  <input id="cpiDomain" type="text" placeholder="e.g. cfapps.eu20.hana.ondemand.com" />
+  <label for="tenantDomains">CPI Tenant Domains (comma separated, supports * wildcard)</label>
+  <input
+    id="tenantDomains"
+    type="text"
+    placeholder="Examples: cfapps.*.hana.ondemand.com, *.it-cpi*.cfapps.*.hana.ondemand.com"
+  />
+  <p id="domainStatus"></p>
 
-  <label for="aiProvider" style="margin-top:16px;">Select AI Provider</label>
+  <label for="aiProvider">AI Provider</label>
   <select id="aiProvider">
     <option value="gemini">Gemini 2.5 Flash</option>
     <option value="openai">OpenAI GPT-4o-mini</option>
